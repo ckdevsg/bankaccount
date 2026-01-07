@@ -172,5 +172,169 @@ class TestBankAccountDepositIntegration(unittest.TestCase):
         mock_notification.notify.assert_called_once()
 
 
+class TestBankAccountInvalidDepositAmounts(unittest.TestCase):
+    """Test suite for invalid deposit amounts."""
+
+    def test_deposit_zero_amount_returns_error_message(self):
+        """Test that deposit with zero amount returns error message."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User1", 100, notification_system=mock_notification)
+        
+        result = acct.deposit(0)
+        
+        self.assertEqual(result, "Deposit amount must be positive.")
+        self.assertEqual(acct.balance, 100)  # Balance unchanged
+        mock_notification.notify.assert_not_called()
+
+    def test_deposit_negative_amount_returns_error_message(self):
+        """Test that deposit with negative amount returns error message."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User2", 100, notification_system=mock_notification)
+        
+        result = acct.deposit(-25.50)
+        
+        self.assertEqual(result, "Deposit amount must be positive.")
+        self.assertEqual(acct.balance, 100)  # Balance unchanged
+        mock_notification.notify.assert_not_called()
+
+    def test_deposit_very_small_negative_amount(self):
+        """Test deposit with very small negative amount."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User3", 100, notification_system=mock_notification)
+        
+        result = acct.deposit(-0.01)
+        
+        self.assertEqual(result, "Deposit amount must be positive.")
+        mock_notification.notify.assert_not_called()
+
+    def test_deposit_string_amount_raises_type_error(self):
+        """Test that deposit with string amount raises TypeError."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User4", 100, notification_system=mock_notification)
+        
+        with self.assertRaises(TypeError):
+            acct.deposit("50")
+        
+        mock_notification.notify.assert_not_called()
+        self.assertEqual(acct.balance, 100)  # Balance unchanged
+
+    def test_deposit_none_amount_raises_type_error(self):
+        """Test that deposit with None amount raises TypeError."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User5", 100, notification_system=mock_notification)
+        
+        with self.assertRaises(TypeError):
+            acct.deposit(None)
+        
+        mock_notification.notify.assert_not_called()
+
+    def test_deposit_list_amount_raises_type_error(self):
+        """Test that deposit with list amount raises TypeError."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User6", 100, notification_system=mock_notification)
+        
+        with self.assertRaises(TypeError):
+            acct.deposit([50])
+        
+        mock_notification.notify.assert_not_called()
+
+    def test_deposit_dict_amount_raises_type_error(self):
+        """Test that deposit with dict amount raises TypeError."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User7", 100, notification_system=mock_notification)
+        
+        with self.assertRaises(TypeError):
+            acct.deposit({"amount": 50})
+        
+        mock_notification.notify.assert_not_called()
+
+    def test_multiple_invalid_deposits_do_not_notify(self):
+        """Test that multiple invalid deposits do not trigger notifications."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User8", 100, notification_system=mock_notification)
+        
+        acct.deposit(0)
+        acct.deposit(-50)
+        acct.deposit(-100.50)
+        
+        mock_notification.notify.assert_not_called()
+        self.assertEqual(acct.balance, 100)  # Balance should remain unchanged
+
+    def test_invalid_deposit_followed_by_valid_deposit(self):
+        """Test that valid deposit after invalid deposit triggers notification."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User9", 100, notification_system=mock_notification)
+        
+        # Invalid deposit
+        result1 = acct.deposit(-50)
+        self.assertEqual(result1, "Deposit amount must be positive.")
+        self.assertEqual(mock_notification.notify.call_count, 0)
+        
+        # Valid deposit
+        result2 = acct.deposit(50)
+        self.assertEqual(mock_notification.notify.call_count, 1)
+        self.assertEqual(acct.balance, 150)
+
+    def test_invalid_deposit_does_not_modify_balance(self):
+        """Test that invalid deposit amounts never modify the balance."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User10", 500, notification_system=mock_notification)
+        
+        initial_balance = acct.balance
+        
+        # Try various invalid amounts
+        invalid_amounts = [0, -1, -100, -0.01]
+        
+        for amount in invalid_amounts:
+            acct.deposit(amount)
+            self.assertEqual(acct.balance, initial_balance)
+        
+        # Verify notification was never called
+        mock_notification.notify.assert_not_called()
+
+    def test_negative_zero_does_not_notify(self):
+        """Test that negative zero (-0.0) is handled correctly."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User11", 100, notification_system=mock_notification)
+        
+        result = acct.deposit(-0.0)
+        
+        # -0.0 should still be treated as non-positive
+        self.assertEqual(result, "Deposit amount must be positive.")
+        mock_notification.notify.assert_not_called()
+
+    def test_invalid_deposit_error_message_consistency(self):
+        """Test that error message is consistent for all invalid amounts."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User12", 100, notification_system=mock_notification)
+        
+        error_message = "Deposit amount must be positive."
+        
+        # Test with various invalid amounts
+        test_cases = [0, -1, -50.5, -999999]
+        
+        for amount in test_cases:
+            result = acct.deposit(amount)
+            self.assertEqual(result, error_message, 
+                           f"Error message mismatch for amount: {amount}")
+
+    def test_invalid_deposit_preserves_notification_system_state(self):
+        """Test that invalid deposit does not affect notification system state."""
+        mock_notification = Mock(spec=NotificationSystem)
+        acct = BankAccount("User13", 100, notification_system=mock_notification)
+        
+        # Make an invalid deposit
+        acct.deposit(-50)
+        
+        # Verify notification system is untouched
+        mock_notification.notify.assert_not_called()
+        
+        # Make a valid deposit
+        acct.deposit(50)
+        
+        # Verify notification system is called exactly once
+        mock_notification.notify.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
